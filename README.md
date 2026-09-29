@@ -146,3 +146,74 @@ psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=
 2. Crear la migración y su prueba.
 3. Abrir un Pull Request hacia `develop`.
 4. El PR solo se puede fusionar cuando pasan los checks `politica / pr`, `calidad / pipeline` y `seguridad / scan`, y lo aprueba el equipo de datos.
+
+## 🌿 Cómo contribuir
+
+### 1️⃣ Clonar el repositorio (solo la primera vez)
+
+Use **Git Bash** en Windows o la terminal en Linux/Mac:
+
+```
+git config --global core.autocrlf input
+git clone https://github.com/Proyecto-Maestria-Spa-Unas/spa-database.git
+cd spa-database
+git switch develop
+```
+
+### 2️⃣ Crear la rama de su tarea
+
+Nunca se trabaja directamente sobre `main` ni `develop`: GitHub rechaza esos push. Cada tarea tiene su rama, creada desde `develop` actualizada:
+
+```
+git switch develop
+git pull
+git switch -c feature/D2-migracion-catalogo
+```
+
+Formato obligatorio: **`tipo/ID-descripcion-corta`**. El `ID` es el de la tarea del sprint en mayúscula (D1, B2, F3, Q1…) y la descripción va en minúsculas, con guiones y sin espacios ni tildes.
+
+| Tipo | Úselo para |
+|---|---|
+| `feature/` | Funcionalidad nueva |
+| `fix/` | Corrección de un defecto |
+| `docs/` | Documentación |
+| `test/` | Pruebas |
+| `refactor/` | Mejora interna sin cambio funcional |
+| `chore/` · `ci/` | Mantenimiento y automatización |
+
+### 3️⃣ Guardar y subir los cambios
+
+```
+git add .
+git commit -s -m "feat(catalogo): migración de categoria, unidad_medida y producto (D2)"
+git push -u origin feature/D2-migracion-catalogo
+```
+
+El mensaje sigue **Conventional Commits**: `tipo(alcance): descripción (ID)`. La opción `-s` firma el commit.
+
+### 4️⃣ Abrir el Pull Request
+
+```
+gh pr create --base develop --fill
+```
+
+O desde GitHub con el botón **Compare & pull request**. En la descripción escriba `Closes Proyecto-Maestria-Spa-Unas/spa-database#<número de la tarea>`. El PR se fusiona cuando los checks obligatorios están en verde.
+
+### 5️⃣ Mantener su rama al día
+
+Si `develop` avanzó mientras usted trabajaba:
+
+```
+git switch develop
+git pull
+git switch -
+git rebase develop
+git push --force-with-lease
+```
+
+`--force-with-lease` solo se usa sobre **su propia rama**, nunca sobre `main` ni `develop`.
+
+### ❌ Qué no hacer
+
+* No subir archivos `.env`, contraseñas ni llaves: el escaneo de seguridad bloqueará el PR.
+* No mezclar varias tareas en una misma rama: una rama, una tarea, un PR.

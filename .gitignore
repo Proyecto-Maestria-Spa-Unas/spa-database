@@ -1,0 +1,5 @@
+.env
+supabase/.branches
+supabase/.temp
+*.dump
+*.backup

@@ -1,0 +1,24 @@
+name: ci
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  politica:
+    if: github.event_name == 'pull_request'
+    uses: Proyecto-Maestria-Spa-Unas/spa-devops-workflows/.github/workflows/pr-policy.yml@main
+
+  calidad:
+    uses: Proyecto-Maestria-Spa-Unas/spa-devops-workflows/.github/workflows/db-ci.yml@main
+
+  seguridad:
+    uses: Proyecto-Maestria-Spa-Unas/spa-devops-workflows/.github/workflows/security.yml@main

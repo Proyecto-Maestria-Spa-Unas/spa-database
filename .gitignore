@@ -3,3 +3,5 @@ supabase/.branches
 supabase/.temp
 *.dump
 *.backup
+supabase/.temp/
+supabase/.branches/

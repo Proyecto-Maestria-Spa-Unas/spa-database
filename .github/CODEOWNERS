@@ -1,4 +1,5 @@
-*                        @Proyecto-Maestria-Spa-Unas/equipo-datos
-/supabase/migrations/    @Proyecto-Maestria-Spa-Unas/equipo-datos @Proyecto-Maestria-Spa-Unas/equipo-backend
-/tests/                  @Proyecto-Maestria-Spa-Unas/equipo-datos @Proyecto-Maestria-Spa-Unas/equipo-qa
-/.github/                @Proyecto-Maestria-Spa-Unas/equipo-devops
+# S0 · Datos: el esquema es propiedad de equipo-datos. Los workflows de despliegue, de devops.
+*                     @Proyecto-Maestria-Spa-Unas/equipo-datos
+/supabase/            @Proyecto-Maestria-Spa-Unas/equipo-datos
+/tests/sql/           @Proyecto-Maestria-Spa-Unas/equipo-datos @Proyecto-Maestria-Spa-Unas/equipo-qa
+/.github/             @Proyecto-Maestria-Spa-Unas/equipo-devops

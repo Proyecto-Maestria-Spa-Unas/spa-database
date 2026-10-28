@@ -1,0 +1,25 @@
+# Mantiene activo Supabase staging: el plan Free pausa el proyecto tras 7 días sin actividad.
+# Los workflows programados solo corren desde la rama por defecto (main).
+name: keep-alive
+
+on:
+  schedule:
+    - cron: "17 13 * * *"   # 08:17 hora de Bogotá
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  consultar:
+    name: keep-alive / staging
+    runs-on: ubuntu-latest
+    environment: operacion
+    timeout-minutes: 5
+    env:
+      DB_URL: ${{ secrets.STAGING_DB_URL }}
+    steps:
+      - name: Validar configuración
+        run: '[ -n "$DB_URL" ] || { echo "::error::Falta STAGING_DB_URL en el entorno operacion"; exit 1; }'
+      - name: Consulta liviana
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -tAc "select 'staging activo · ' || now()::text"

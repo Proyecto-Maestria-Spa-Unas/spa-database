@@ -1,0 +1,49 @@
+# Respaldo semanal cifrado de Supabase staging (RNF-10). El repositorio es público:
+# se cifra con AES-256 ANTES de subirse como artefacto.
+# Restaurar: gpg -d respaldo-*.tar.gz.gpg | tar xz  →  psql -f roles.sql, schema.sql, data.sql
+name: respaldo
+
+on:
+  schedule:
+    - cron: "41 11 * * 0"   # domingos 06:41 hora de Bogotá
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  respaldar:
+    name: respaldo / staging
+    runs-on: ubuntu-latest
+    environment: operacion
+    timeout-minutes: 20
+    env:
+      DB_URL: ${{ secrets.STAGING_DB_URL }}
+      CLAVE: ${{ secrets.RESPALDO_CLAVE }}
+    steps:
+      - name: Validar configuración
+        run: |
+          for v in DB_URL CLAVE; do
+            [ -n "${!v}" ] || { echo "::error::Falta un secreto del entorno operacion ($v)"; exit 1; }
+          done
+      - name: Volcar roles, esquema y datos
+        run: |
+          mkdir -p respaldo
+          npx --yes supabase@2 db dump --db-url "$DB_URL" --role-only -f respaldo/roles.sql
+          npx --yes supabase@2 db dump --db-url "$DB_URL" -f respaldo/schema.sql
+          npx --yes supabase@2 db dump --db-url "$DB_URL" --data-only --use-copy -f respaldo/data.sql
+      - name: Empaquetar y cifrar
+        run: |
+          NOMBRE="respaldo-staging-$(date -u +%Y%m%d)"
+          echo "NOMBRE=$NOMBRE" >> "$GITHUB_ENV"
+          tar czf "$NOMBRE.tar.gz" -C respaldo .
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$CLAVE" \
+              --symmetric --cipher-algo AES256 -o "$NOMBRE.tar.gz.gpg" "$NOMBRE.tar.gz"
+          rm -rf respaldo "$NOMBRE.tar.gz"
+      - name: Guardar artefacto cifrado
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.NOMBRE }}
+          path: ${{ env.NOMBRE }}.tar.gz.gpg
+          retention-days: 30
+          if-no-files-found: error

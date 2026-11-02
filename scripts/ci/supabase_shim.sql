@@ -17,6 +17,18 @@ CREATE TABLE IF NOT EXISTS auth.users (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Columnas adicionales compatibles con las pruebas de autenticación.
+ALTER TABLE auth.users
+  ADD COLUMN IF NOT EXISTS aud text,
+  ADD COLUMN IF NOT EXISTS role text,
+  ADD COLUMN IF NOT EXISTS encrypted_password text,
+  ADD COLUMN IF NOT EXISTS email_confirmed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS raw_app_meta_data jsonb DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS raw_user_meta_data jsonb DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS is_sso_user boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_anonymous boolean NOT NULL DEFAULT false;
+
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
 LANGUAGE sql STABLE AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid

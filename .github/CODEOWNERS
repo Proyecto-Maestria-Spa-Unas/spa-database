@@ -1,5 +1,4 @@
-# S0 · Datos: el esquema es propiedad de equipo-datos. Los workflows de despliegue, de devops.
-*                     @Proyecto-Maestria-Spa-Unas/equipo-datos
-/supabase/            @Proyecto-Maestria-Spa-Unas/equipo-datos
-/tests/sql/           @Proyecto-Maestria-Spa-Unas/equipo-datos @Proyecto-Maestria-Spa-Unas/equipo-qa
-/.github/             @Proyecto-Maestria-Spa-Unas/equipo-devops
+# Todo PR hacia develop lo aprueba un integrante de equipo-qa (ADR-0007).
+# El ruleset integracion-develop exige esa aprobación (require_code_owner_review).
+# GitHub no permite aprobar el propio PR: los PR de un integrante de QA los aprueba el otro.
+*   @Proyecto-Maestria-Spa-Unas/equipo-qa

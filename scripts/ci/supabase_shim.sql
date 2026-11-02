@@ -38,3 +38,14 @@ CREATE OR REPLACE FUNCTION auth.role() RETURNS text
 LANGUAGE sql STABLE AS $$
   SELECT nullif(current_setting('request.jwt.claim.role', true), '')
 $$;
+
+
+-- Permitir que los roles de Supabase accedan al esquema auth.
+GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
+
+-- Permitir la ejecución de las funciones de autenticación.
+GRANT EXECUTE ON FUNCTION auth.uid()
+TO anon, authenticated, service_role;
+
+GRANT EXECUTE ON FUNCTION auth.role()
+TO anon, authenticated, service_role;

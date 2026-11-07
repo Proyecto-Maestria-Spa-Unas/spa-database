@@ -52,8 +52,8 @@ BEGIN
             nombre varchar(120) NOT NULL,
             telefono varchar(30),
             correo varchar(254),
-            direccion varchar(200) NOT NULL,
-            ubicacion %1$I.geography(Point, 4326) NOT NULL,
+            direccion varchar(200),
+            ubicacion %1$I.geography(Point, 4326),
             activo boolean NOT NULL DEFAULT true,
             creado_en timestamptz NOT NULL DEFAULT now(),
 
@@ -83,10 +83,15 @@ CREATE INDEX IF NOT EXISTS proveedor_activo_idx
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS inventario.motivo_movimiento (
-    codigo varchar(30) PRIMARY KEY,
-    descripcion varchar(150) NOT NULL,
+    id smallint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    codigo varchar(30) NOT NULL UNIQUE,
+    nombre varchar(150) NOT NULL,
+    aplica_a varchar(10) NOT NULL,
     activo boolean NOT NULL DEFAULT true,
-    creado_en timestamptz NOT NULL DEFAULT now()
+    creado_en timestamptz NOT NULL DEFAULT now(),
+
+    CONSTRAINT motivo_movimiento_aplica_a_ck
+        CHECK (aplica_a IN ('ENTRADA', 'SALIDA'))
 );
 
 
@@ -436,36 +441,44 @@ $migration$;
 
 INSERT INTO inventario.motivo_movimiento (
     codigo,
-    descripcion
+    nombre,
+    aplica_a
 )
 VALUES
     (
         'COMPRA',
-        'Ingreso de productos por compra a proveedor'
+        'Ingreso de productos por compra a proveedor',
+        'ENTRADA'
     ),
     (
         'CONSUMO_SERVICIO',
-        'Salida de productos para prestación de servicios'
+        'Salida de productos para prestación de servicios',
+        'SALIDA'
     ),
     (
         'MERMA',
-        'Disminución de inventario por merma'
+        'Disminución de inventario por merma',
+        'SALIDA'
     ),
     (
         'VENCIMIENTO',
-        'Retiro de productos vencidos'
+        'Retiro de productos vencidos',
+        'SALIDA'
     ),
     (
         'AJUSTE_CONTEO',
-        'Ajuste por diferencia en conteo físico'
+        'Ajuste por diferencia en conteo físico',
+        'ENTRADA'
     ),
     (
         'SALDO_INICIAL',
-        'Registro del saldo inicial del inventario'
+        'Registro del saldo inicial del inventario',
+        'ENTRADA'
     )
 
 ON CONFLICT (codigo) DO UPDATE SET
-    descripcion = EXCLUDED.descripcion;
+    nombre = EXCLUDED.nombre,
+    aplica_a = EXCLUDED.aplica_a;
 
 
 -- ============================================================================

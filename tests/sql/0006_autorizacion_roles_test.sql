@@ -1,4 +1,3 @@
-
 -- ============================================================================
 -- D6 - PRUEBAS FUNCIONALES DE AUTORIZACION POR ROLES
 -- Proyecto: Spa de Uñas - Inventario
@@ -80,14 +79,33 @@ VALUES
 -- 2. ASIGNAR PERFILES
 -- ============================================================================
 
-INSERT INTO seguridad.perfil (usuario_id, rol_id)
-SELECT usuarios.usuario_id, roles.id
+INSERT INTO seguridad.perfil (
+    usuario_id,
+    rol_id,
+    nombre_completo
+)
+SELECT
+    usuarios.usuario_id,
+    roles.id,
+    usuarios.nombre_completo
 FROM (
     VALUES
-        ('d6000000-0000-4000-8000-000000000001'::uuid, 'ADMINISTRADOR'),
-        ('d6000000-0000-4000-8000-000000000002'::uuid, 'MANICURISTA'),
-        ('d6000000-0000-4000-8000-000000000003'::uuid, 'GERENTE')
-) AS usuarios(usuario_id, rol_codigo)
+        (
+            'd6000000-0000-4000-8000-000000000001'::uuid,
+            'ADMINISTRADOR',
+            'Usuario Administrador D6'
+        ),
+        (
+            'd6000000-0000-4000-8000-000000000002'::uuid,
+            'MANICURISTA',
+            'Usuario Manicurista D6'
+        ),
+        (
+            'd6000000-0000-4000-8000-000000000003'::uuid,
+            'GERENTE',
+            'Usuario Gerente D6'
+        )
+) AS usuarios(usuario_id, rol_codigo, nombre_completo)
 JOIN seguridad.rol AS roles
     ON roles.codigo = usuarios.rol_codigo;
 

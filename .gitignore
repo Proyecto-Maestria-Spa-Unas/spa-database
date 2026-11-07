@@ -5,3 +5,5 @@ supabase/.temp
 *.backup
 supabase/.temp/
 supabase/.branches/
+
+supabase/snippets/

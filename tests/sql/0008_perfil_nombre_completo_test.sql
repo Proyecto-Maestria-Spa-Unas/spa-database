@@ -54,8 +54,16 @@ BEGIN
     -- B5/B6-03: Crear un usuario ficticio para las pruebas.
     -- =========================================================================
 
-    INSERT INTO auth.users DEFAULT VALUES
-    RETURNING id INTO v_usuario_id;
+    v_usuario_id := gen_random_uuid();
+
+    INSERT INTO auth.users (
+        id,
+        email
+    )
+    VALUES (
+        v_usuario_id,
+        v_usuario_id::text || '@b5b6.test'
+    );
 
     -- =========================================================================
     -- B5/B6-04: Aceptar un nombre con la longitud minima de 3 caracteres.

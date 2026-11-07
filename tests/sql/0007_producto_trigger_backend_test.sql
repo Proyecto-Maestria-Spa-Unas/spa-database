@@ -139,11 +139,13 @@ BEGIN
   INSERT INTO seguridad.perfil (
     usuario_id,
     rol_id,
+    nombre_completo,
     activo
   )
   VALUES (
     v_usuario_id,
     v_rol_id,
+    'Usuario de prueba',
     true
   );
 

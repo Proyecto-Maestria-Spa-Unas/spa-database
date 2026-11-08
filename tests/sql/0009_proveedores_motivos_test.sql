@@ -1,26 +1,20 @@
+
 -- ============================================================================
 -- D12: PRUEBAS DE PROVEEDORES GEORREFERENCIADOS Y MOTIVOS DE MOVIMIENTO
 -- Proyecto: Spa de Uñas - Inventario
---
--- Criterios:
--- 1. Estructura y restricciones de proveedores.
--- 2. Unicidad del NIT y campos opcionales.
--- 3. Búsqueda georreferenciada y validación de parámetros.
--- 4. Seguridad RLS y permisos de proveedores.
--- 5. Motivos de movimiento y clasificación ENTRADA/SALIDA.
---
--- Todas las operaciones se revierten mediante ROLLBACK.
 -- ============================================================================
 
 BEGIN;
 
 -- ============================================================================
--- PRUEBA 1: ESTRUCTURA DE LAS TABLAS Y POLÍTICAS RLS
+-- PRUEBA 1: ESTRUCTURA, TIPOS DE DATOS Y POLITICAS RLS
 -- ============================================================================
 
 DO $$
+DECLARE
+    v_secuencia text;
+    v_tipo_secuencia text;
 BEGIN
-
     ASSERT to_regclass('inventario.proveedor') IS NOT NULL,
         'D12-01: no existe inventario.proveedor';
 
@@ -43,7 +37,26 @@ BEGIN
         WHERE table_schema = 'inventario'
           AND table_name = 'motivo_movimiento'
           AND column_name = 'id'
-    ), 'D12-01: falta columna id en motivo_movimiento';
+          AND data_type = 'integer'
+          AND is_identity = 'YES'
+    ), 'D12-01: motivo_movimiento.id debe ser integer e IDENTITY';
+
+    v_secuencia := pg_get_serial_sequence(
+        'inventario.motivo_movimiento',
+        'id'
+    );
+
+    ASSERT v_secuencia IS NOT NULL,
+        'D12-01: no se encontro la secuencia de identidad';
+
+    SELECT ps.data_type
+    INTO v_tipo_secuencia
+    FROM pg_sequences AS ps
+    WHERE format('%I.%I', ps.schemaname, ps.sequencename)
+          = v_secuencia;
+
+    ASSERT v_tipo_secuencia = 'integer',
+        'D12-01: la secuencia de identidad debe ser integer';
 
     ASSERT EXISTS (
         SELECT 1
@@ -83,19 +96,17 @@ BEGIN
         SELECT COUNT(*) = 4
         FROM pg_policies
         WHERE schemaname = 'inventario'
-          AND (
-              policyname = 'proveedor_consultar'
-              OR policyname = 'proveedor_crear'
-              OR policyname = 'proveedor_actualizar'
-              OR policyname = 'motivo_movimiento_consultar'
+          AND policyname IN (
+              'proveedor_consultar',
+              'proveedor_crear',
+              'proveedor_actualizar',
+              'motivo_movimiento_consultar'
           )
-    ), 'D12-01: faltan políticas RLS de D12';
+    ), 'D12-01: faltan politicas RLS de D12';
 
-    RAISE NOTICE 'D12-01 OK: estructura y políticas RLS';
-
+    RAISE NOTICE 'D12-01 OK: estructura, tipos y politicas RLS';
 END;
 $$;
-
 
 -- ============================================================================
 -- PRUEBA 2: UNICIDAD DEL NIT Y CAMPOS OPCIONALES
@@ -106,21 +117,13 @@ DECLARE
     v_nit text;
     v_duplicado boolean := false;
 BEGIN
-
     ASSERT current_user = 'postgres',
         'D12-02: ejecutar como postgres';
 
     v_nit := 'D12-' || substr(gen_random_uuid()::text, 1, 20);
 
-    -- Crear proveedor sin dirección ni ubicación.
-    INSERT INTO inventario.proveedor (
-        nit,
-        nombre
-    )
-    VALUES (
-        v_nit,
-        'Proveedor prueba D12'
-    );
+    INSERT INTO inventario.proveedor (nit, nombre)
+    VALUES (v_nit, 'Proveedor prueba D12');
 
     ASSERT EXISTS (
         SELECT 1
@@ -130,18 +133,48 @@ BEGIN
           AND ubicacion IS NULL
     ), 'D12-02: el proveedor debe aceptar direccion y ubicacion NULL';
 
-    -- Intentar registrar el mismo NIT.
-    BEGIN
-
-        INSERT INTO inventario.proveedor (
-            nit,
-            nombre
+    ASSERT (
+        SELECT COUNT(*) = 2
+        FROM inventario.proveedor
+        WHERE (nit, nombre) IN (
+            ('NIT-PRUEBA-001', 'Ghem (PRUEBA)'),
+            ('NIT-PRUEBA-002', 'Masglo (PRUEBA)')
         )
-        VALUES (
-            v_nit,
-            'Proveedor duplicado D12'
-        );
+          AND telefono IS NULL
+          AND correo IS NULL
+          AND direccion IS NULL
+          AND ubicacion IS NULL
+    ), 'D12-02: Ghem y Masglo deben tener sus datos opcionales en NULL';
 
+    ASSERT (
+        SELECT COUNT(*) = 3
+        FROM inventario.proveedor
+        WHERE nit IN (
+            'NIT-PRUEBA-003',
+            'NIT-PRUEBA-004',
+            'NIT-PRUEBA-005'
+        )
+          AND telefono IS NOT NULL
+          AND correo LIKE '%@example.test'
+          AND direccion IS NOT NULL
+          AND ubicacion IS NOT NULL
+    ), 'D12-02: los tres proveedores de zonas deben tener datos ficticios y ubicacion';
+
+    ASSERT (
+        SELECT COUNT(*) = 5
+        FROM inventario.proveedor
+        WHERE nit IN (
+            'NIT-PRUEBA-001',
+            'NIT-PRUEBA-002',
+            'NIT-PRUEBA-003',
+            'NIT-PRUEBA-004',
+            'NIT-PRUEBA-005'
+        )
+    ), 'D12-02: deben existir los cinco proveedores de prueba';
+
+    BEGIN
+        INSERT INTO inventario.proveedor (nit, nombre)
+        VALUES (v_nit, 'Proveedor duplicado D12');
     EXCEPTION
         WHEN unique_violation THEN
             v_duplicado := true;
@@ -150,14 +183,12 @@ BEGIN
     ASSERT v_duplicado,
         'D12-02: debe rechazarse un NIT duplicado';
 
-    RAISE NOTICE 'D12-02 OK: NIT único y campos opcionales';
-
+    RAISE NOTICE 'D12-02 OK: NIT unico y campos opcionales';
 END;
 $$;
 
-
 -- ============================================================================
--- PRUEBA 3: FUNCIÓN DE PROVEEDORES CERCANOS
+-- PRUEBA 3: FUNCION DE PROVEEDORES CERCANOS
 -- ============================================================================
 
 DO $$
@@ -167,82 +198,64 @@ DECLARE
     v_anterior double precision := -1;
     v_bloqueado boolean;
 BEGIN
-
-    -- Verificar resultados dentro de un radio de 3 km en Bogotá.
     SELECT COUNT(*)
     INTO v_total
-    FROM inventario.proveedores_cercanos(
-        4.648,
-        -74.062,
-        3
-    );
+    FROM inventario.proveedores_cercanos(4.6038, -74.0875, 5);
 
-    ASSERT v_total >= 2,
-        'D12-03: se esperaban al menos dos proveedores cercanos en los datos de prueba';
+    ASSERT v_total >= 3,
+        'D12-03: se esperaban los tres proveedores georreferenciados';
 
-    -- Verificar orden ascendente por distancia.
+    ASSERT NOT EXISTS (
+        SELECT 1
+        FROM inventario.proveedores_cercanos(4.6038, -74.0875, 5) AS cercano
+        WHERE cercano.nombre IN ('Ghem (PRUEBA)', 'Masglo (PRUEBA)')
+    ), 'D12-03: proveedores sin ubicacion no deben aparecer';
+
+    ASSERT NOT EXISTS (
+        SELECT 1
+        FROM inventario.proveedores_cercanos(4.6038, -74.0875, 5) AS cercano
+        JOIN inventario.proveedor AS pr ON pr.id = cercano.id
+        WHERE pr.ubicacion IS NULL
+    ), 'D12-03: la funcion devolvio un proveedor sin ubicacion';
+
     FOR v_distancia IN
         SELECT distancia_km
-        FROM inventario.proveedores_cercanos(
-            4.648,
-            -74.062,
-            3
-        )
+        FROM inventario.proveedores_cercanos(4.6038, -74.0875, 5)
     LOOP
-
         ASSERT v_distancia >= v_anterior,
-            'D12-03: los proveedores no están ordenados por distancia';
+            'D12-03: los proveedores no estan ordenados por distancia';
 
         v_anterior := v_distancia;
-
     END LOOP;
 
-    -- Latitud fuera de rango.
     v_bloqueado := false;
-
     BEGIN
         PERFORM *
-        FROM inventario.proveedores_cercanos(
-            91,
-            -74.062,
-            3
-        );
+        FROM inventario.proveedores_cercanos(91, -74.062, 3);
     EXCEPTION
         WHEN raise_exception THEN
             v_bloqueado := true;
     END;
 
     ASSERT v_bloqueado,
-        'D12-03: debe rechazarse una latitud inválida';
+        'D12-03: debe rechazarse una latitud invalida';
 
-    -- Longitud fuera de rango.
     v_bloqueado := false;
-
     BEGIN
         PERFORM *
-        FROM inventario.proveedores_cercanos(
-            4.648,
-            181,
-            3
-        );
+        FROM inventario.proveedores_cercanos(4.648, 181, 3);
     EXCEPTION
         WHEN raise_exception THEN
             v_bloqueado := true;
     END;
 
     ASSERT v_bloqueado,
-        'D12-03: debe rechazarse una longitud inválida';
+        'D12-03: debe rechazarse una longitud invalida';
 
-    -- Radio igual a cero.
     v_bloqueado := false;
-
     BEGIN
         PERFORM *
-        FROM inventario.proveedores_cercanos(
-            4.648,
-            -74.062,
-            0
-        );
+        FROM inventario.proveedores_cercanos(4.648, -74.062, 0);
     EXCEPTION
         WHEN raise_exception THEN
             v_bloqueado := true;
@@ -251,16 +264,10 @@ BEGIN
     ASSERT v_bloqueado,
         'D12-03: debe rechazarse un radio igual a cero';
 
-    -- Radio negativo.
     v_bloqueado := false;
-
     BEGIN
         PERFORM *
-        FROM inventario.proveedores_cercanos(
-            4.648,
-            -74.062,
-            -1
-        );
+        FROM inventario.proveedores_cercanos(4.648, -74.062, -1);
     EXCEPTION
         WHEN raise_exception THEN
             v_bloqueado := true;
@@ -269,14 +276,12 @@ BEGIN
     ASSERT v_bloqueado,
         'D12-03: debe rechazarse un radio negativo';
 
-    RAISE NOTICE 'D12-03 OK: búsqueda, distancia y validaciones';
-
+    RAISE NOTICE 'D12-03 OK: busqueda, orden, exclusion NULL y validaciones';
 END;
 $$;
 
-
 -- ============================================================================
--- PREPARACIÓN: USUARIO TEMPORAL SIN PERMISOS
+-- PREPARACION: USUARIO TEMPORAL SIN PERMISOS
 -- ============================================================================
 
 DO $$
@@ -284,7 +289,6 @@ DECLARE
     v_rol_id seguridad.rol.id%TYPE;
     v_usuario_id uuid;
 BEGIN
-
     INSERT INTO seguridad.rol (
         codigo,
         nombre,
@@ -305,13 +309,9 @@ BEGIN
     ASSERT v_rol_id IS NOT NULL,
         'D12-04: no se pudo crear el rol temporal';
 
-    -- Crear usuario temporal.
     v_usuario_id := gen_random_uuid();
 
-    INSERT INTO auth.users (
-        id,
-        email
-    )
+    INSERT INTO auth.users (id, email)
     VALUES (
         v_usuario_id,
         v_usuario_id::text || '@d12.test'
@@ -337,20 +337,14 @@ BEGIN
     );
 
     RAISE NOTICE 'D12-04: usuario temporal preparado';
-
 END;
 $$;
 
-
 -- ============================================================================
--- PRUEBA 4: RLS PARA CONSULTA Y CREACIÃ“N DE PROVEEDORES
+-- PRUEBA 4: RLS PARA CONSULTA Y CREACION DE PROVEEDORES
 -- ============================================================================
 
-SELECT set_config(
-    'request.jwt.claim.role',
-    'authenticated',
-    true
-);
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 
 SELECT set_config(
     'request.jwt.claim.sub',
@@ -365,7 +359,6 @@ DECLARE
     v_total integer;
     v_bloqueado boolean := false;
 BEGIN
-
     ASSERT auth.role() = 'authenticated',
         'D12-04: el rol debe ser authenticated';
 
@@ -378,51 +371,38 @@ BEGIN
     ASSERT NOT seguridad.tiene_permiso('catalogo.administrar'),
         'D12-04: el usuario no debe tener catalogo.administrar';
 
-    -- Sin permiso de consulta no debe visualizar proveedores.
     SELECT COUNT(*)
     INTO v_total
     FROM inventario.proveedor;
 
     ASSERT v_total = 0,
-        'D12-04: RLS permitió consultar proveedores sin permiso';
+        'D12-04: RLS permitio consultar proveedores sin permiso';
 
-    -- Sin permiso administrativo no debe crear proveedores.
     BEGIN
-
-        INSERT INTO inventario.proveedor (
-            nit,
-            nombre
-        )
-        VALUES (
-            'D12-BLOQUEADO',
-            'Proveedor no autorizado'
-        );
-
+        INSERT INTO inventario.proveedor (nit, nombre)
+        VALUES ('D12-BLOQUEADO', 'Proveedor no autorizado');
     EXCEPTION
         WHEN insufficient_privilege THEN
             v_bloqueado := true;
     END;
 
     ASSERT v_bloqueado,
-        'D12-04: RLS permitió crear proveedor sin catalogo.administrar';
+        'D12-04: RLS permitio crear proveedor sin catalogo.administrar';
 
     RAISE NOTICE 'D12-04 OK: restricciones RLS de proveedores';
-
 END;
 $$;
 
 RESET ROLE;
 
-
 -- ============================================================================
--- PRUEBA 5: SEIS MOTIVOS DE MOVIMIENTO Y SU CLASIFICACIÓN
+-- PRUEBA 5: SEIS MOTIVOS DE MOVIMIENTO Y SU CLASIFICACION
 -- ============================================================================
 
 DO $$
 DECLARE
     v_total integer;
 BEGIN
-
     SELECT COUNT(*)
     INTO v_total
     FROM inventario.motivo_movimiento;
@@ -439,7 +419,7 @@ BEGIN
               'AJUSTE_CONTEO',
               'SALDO_INICIAL'
           )
-    ), 'D12-05: clasificación incorrecta de motivos de entrada';
+    ), 'D12-05: clasificacion incorrecta de motivos de entrada';
 
     ASSERT (
         SELECT COUNT(*) = 3
@@ -450,20 +430,18 @@ BEGIN
               'MERMA',
               'VENCIMIENTO'
           )
-    ), 'D12-05: clasificación incorrecta de motivos de salida';
+    ), 'D12-05: clasificacion incorrecta de motivos de salida';
 
     ASSERT (
         SELECT COUNT(*) = 6
         FROM inventario.motivo_movimiento
         WHERE nombre IS NOT NULL
           AND aplica_a IN ('ENTRADA', 'SALIDA')
-    ), 'D12-05: existen motivos sin nombre o clasificación válida';
+    ), 'D12-05: existen motivos sin nombre o clasificacion valida';
 
-    RAISE NOTICE 'D12-05 OK: seis motivos y clasificación correcta';
-
+    RAISE NOTICE 'D12-05 OK: seis motivos y clasificacion correcta';
 END;
 $$;
-
 
 -- ============================================================================
 -- RESULTADO FINAL
@@ -473,7 +451,7 @@ DO $$
 BEGIN
     RAISE NOTICE '==============================================';
     RAISE NOTICE '0009_proveedores_motivos_test: VALIDACIONES OK';
-    RAISE NOTICE 'D12-01: estructura y politicas RLS';
+    RAISE NOTICE 'D12-01: estructura, tipos y secuencia';
     RAISE NOTICE 'D12-02: NIT unico y campos opcionales';
     RAISE NOTICE 'D12-03: busqueda georreferenciada';
     RAISE NOTICE 'D12-04: permisos de proveedores';

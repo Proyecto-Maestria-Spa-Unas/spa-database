@@ -14,8 +14,17 @@
 
 -- 1. IDENTIFICADOR DE MOTIVO COMO INTEGER --------------------------------------
 
-ALTER TABLE inventario.motivo_movimiento
-    ALTER COLUMN id TYPE integer;
+-- Solo si todavía es smallint: con vistas que ya usan la columna (D9), un ALTER
+-- al mismo tipo falla, y el CI vuelve a aplicar todas las migraciones.
+DO $migration$
+BEGIN
+    IF (SELECT data_type FROM information_schema.columns
+        WHERE table_schema = 'inventario' AND table_name = 'motivo_movimiento'
+          AND column_name = 'id') <> 'integer' THEN
+        ALTER TABLE inventario.motivo_movimiento ALTER COLUMN id TYPE integer;
+    END IF;
+END;
+$migration$;
 
 DO $migration$
 DECLARE

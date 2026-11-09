@@ -17,7 +17,7 @@ GRANT USAGE ON SCHEMA auditoria TO service_role;
 
 
 -- 2. Tabla de auditoría
-CREATE TABLE auditoria.registro_cambio (
+CREATE TABLE IF NOT EXISTS auditoria.registro_cambio (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   esquema_tabla text NOT NULL,
   nombre_tabla text NOT NULL,

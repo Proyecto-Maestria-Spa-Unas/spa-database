@@ -139,6 +139,7 @@ DECLARE
 BEGIN
 
   -- Set an empty JWT context.
+  PERFORM set_config('request.jwt.claim.sub', '', true);
   PERFORM set_config(
     'request.jwt.claims',
     '{}',
@@ -179,6 +180,8 @@ BEGIN
     true
   );
 
+  PERFORM set_config('request.jwt.claim.sub', v_usuario::text, true);
+
   -- Create profile.
   INSERT INTO seguridad.perfil (
     usuario_id,
@@ -208,6 +211,7 @@ BEGIN
   END IF;
 
   -- Clear the authenticated JWT context before backend inventory tests.
+  PERFORM set_config('request.jwt.claim.sub', '', true);
   -- This avoids invoking product permission checks for the temporary user.
   PERFORM set_config(
     'request.jwt.claims',

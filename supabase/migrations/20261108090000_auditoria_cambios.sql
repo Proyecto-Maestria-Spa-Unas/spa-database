@@ -166,10 +166,14 @@ FROM PUBLIC, anon, authenticated, service_role;
 
 
 -- 6. Protección contra UPDATE, DELETE y TRUNCATE
+DROP TRIGGER IF EXISTS trg_registro_cambio_inmutable ON auditoria.registro_cambio;
+
 CREATE TRIGGER trg_registro_cambio_inmutable
 BEFORE UPDATE OR DELETE ON auditoria.registro_cambio
 FOR EACH ROW
 EXECUTE FUNCTION auditoria.tg_impedir_modificacion();
+
+DROP TRIGGER IF EXISTS trg_registro_cambio_no_truncate ON auditoria.registro_cambio;
 
 CREATE TRIGGER trg_registro_cambio_no_truncate
 BEFORE TRUNCATE ON auditoria.registro_cambio
@@ -178,6 +182,8 @@ EXECUTE FUNCTION auditoria.tg_impedir_modificacion();
 
 
 -- 7. Auditoría de producto
+DROP TRIGGER IF EXISTS trg_auditoria_producto ON inventario.producto;
+
 CREATE TRIGGER trg_auditoria_producto
 AFTER INSERT OR UPDATE OR DELETE ON inventario.producto
 FOR EACH ROW
@@ -185,6 +191,8 @@ EXECUTE FUNCTION auditoria.tg_registrar_cambio();
 
 
 -- 8. Auditoría de proveedor
+DROP TRIGGER IF EXISTS trg_auditoria_proveedor ON inventario.proveedor;
+
 CREATE TRIGGER trg_auditoria_proveedor
 AFTER INSERT OR UPDATE OR DELETE ON inventario.proveedor
 FOR EACH ROW
@@ -192,6 +200,8 @@ EXECUTE FUNCTION auditoria.tg_registrar_cambio();
 
 
 -- 9. Auditoría de perfil
+DROP TRIGGER IF EXISTS trg_auditoria_perfil ON seguridad.perfil;
+
 CREATE TRIGGER trg_auditoria_perfil
 AFTER INSERT OR UPDATE OR DELETE ON seguridad.perfil
 FOR EACH ROW
@@ -199,6 +209,8 @@ EXECUTE FUNCTION auditoria.tg_registrar_cambio();
 
 
 -- 10. Auditoría de categoría
+DROP TRIGGER IF EXISTS trg_auditoria_categoria ON inventario.categoria;
+
 CREATE TRIGGER trg_auditoria_categoria
 AFTER INSERT OR UPDATE OR DELETE ON inventario.categoria
 FOR EACH ROW
@@ -207,6 +219,8 @@ EXECUTE FUNCTION auditoria.tg_registrar_cambio();
 
 -- 11. Seguridad y RLS
 ALTER TABLE auditoria.registro_cambio ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS registro_cambio_service_role_select ON auditoria.registro_cambio;
 
 CREATE POLICY registro_cambio_service_role_select
 ON auditoria.registro_cambio

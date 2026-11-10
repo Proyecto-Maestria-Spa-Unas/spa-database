@@ -166,6 +166,19 @@ BEGIN
             'svc_catalogo debe poder actualizar stock_minimo';
     END IF;
 
+    -- PROVEEDORES: gestión por el servicio de catálogo.
+    IF NOT has_table_privilege(
+        'svc_catalogo', 'inventario.proveedor', 'SELECT'
+    )
+    OR NOT has_table_privilege(
+        'svc_catalogo', 'inventario.proveedor', 'INSERT'
+    )
+    OR NOT has_table_privilege(
+        'svc_catalogo', 'inventario.proveedor', 'UPDATE'
+    ) THEN
+        RAISE EXCEPTION
+            'svc_catalogo debe tener SELECT, INSERT y UPDATE sobre proveedor';
+    END IF;
     -- MOVIMIENTOS.
     IF NOT has_table_privilege(
         'svc_movimientos', 'inventario.movimiento', 'SELECT'
@@ -353,30 +366,20 @@ BEGIN
             'svc_catalogo no debe insertar movimientos';
     END IF;
 
-    -- CATÁLOGO no debe consultar proveedores, ni a nivel de tabla
-    -- ni mediante privilegios SELECT por columna.
-    IF EXISTS (
+    -- CATÁLOGO no debe eliminar proveedores.
+    IF has_table_privilege(
+        'svc_catalogo', 'inventario.proveedor', 'DELETE'
+    )
+    OR EXISTS (
         SELECT 1
         FROM pg_catalog.pg_class c
         CROSS JOIN LATERAL pg_catalog.aclexplode(c.relacl) a
         WHERE c.oid = 'inventario.proveedor'::regclass
           AND a.grantee = v_rol_catalogo
-          AND a.privilege_type = 'SELECT'
-    )
-    OR EXISTS (
-        SELECT 1
-        FROM pg_catalog.pg_class c
-        JOIN pg_catalog.pg_attribute att
-          ON att.attrelid = c.oid
-        CROSS JOIN LATERAL pg_catalog.aclexplode(att.attacl) a
-        WHERE c.oid = 'inventario.proveedor'::regclass
-          AND att.attnum > 0
-          AND NOT att.attisdropped
-          AND a.grantee = v_rol_catalogo
-          AND a.privilege_type = 'SELECT'
+          AND a.privilege_type = 'DELETE'
     ) THEN
         RAISE EXCEPTION
-            'svc_catalogo no debe consultar proveedor';
+            'svc_catalogo no debe tener DELETE sobre proveedor';
     END IF;
 
     -- MOVIMIENTOS no debe tener UPDATE sobre la tabla ni columnas,

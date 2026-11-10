@@ -225,7 +225,12 @@ GRANT SELECT
 ON TABLE inventario.motivo_movimiento
 TO svc_catalogo;
 
--- No se concede acceso a proveedor ni INSERT sobre movimiento.
+-- El módulo de catálogo gestiona proveedores.
+GRANT SELECT, INSERT, UPDATE
+ON TABLE inventario.proveedor
+TO svc_catalogo;
+
+-- No se concede DELETE sobre proveedor ni INSERT sobre movimiento.
 -- El registro de saldo inicial debe delegarse al módulo de movimientos.
 
 -- Conceder USAGE y SELECT sobre la secuencia de categoria

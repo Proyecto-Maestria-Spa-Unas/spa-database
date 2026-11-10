@@ -20,6 +20,7 @@ concurrency:
 jobs:
   desplegar:
     name: desplegar / supabase
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     env:
@@ -33,10 +34,16 @@ jobs:
           [ -f supabase/config.toml ] || { echo "::error::Falta supabase/config.toml"; exit 1; }
 
       - name: Migraciones pendientes (simulación)
-        run: npx --yes supabase@2 db push --db-url "$SUPABASE_DB_URL" --include-seed --dry-run
+        run: npx --yes supabase@2 db push --db-url "$SUPABASE_DB_URL" --dry-run
 
-      - name: Aplicar migraciones y seeds
-        run: npx --yes supabase@2 db push --db-url "$SUPABASE_DB_URL" --include-seed
+      - name: Aplicar migraciones
+        run: npx --yes supabase@2 db push --db-url "$SUPABASE_DB_URL"
+      - name: Ejecutar datos de demostración (solo staging)
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/seed.sql
 
       - name: Resumen
         if: always()

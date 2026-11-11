@@ -18,39 +18,27 @@ BEGIN;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'svc_identidad') THEN
-        CREATE ROLE svc_identidad;
+        CREATE ROLE svc_identidad NOLOGIN NOINHERIT;
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'svc_catalogo') THEN
-        CREATE ROLE svc_catalogo;
+        CREATE ROLE svc_catalogo NOLOGIN NOINHERIT;
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'svc_movimientos') THEN
-        CREATE ROLE svc_movimientos;
+        CREATE ROLE svc_movimientos NOLOGIN NOINHERIT;
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'svc_analitica') THEN
-        CREATE ROLE svc_analitica;
+        CREATE ROLE svc_analitica NOLOGIN NOINHERIT;
     END IF;
 END;
 $$;
 
 -- 2. Configuración segura.
-ALTER ROLE svc_identidad
-    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOINHERIT NOREPLICATION NOBYPASSRLS;
 
-ALTER ROLE svc_catalogo
-    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOINHERIT NOREPLICATION NOBYPASSRLS;
 
-ALTER ROLE svc_movimientos
-    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOINHERIT NOREPLICATION NOBYPASSRLS;
 
-ALTER ROLE svc_analitica
-    NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
-    NOINHERIT NOREPLICATION NOBYPASSRLS;
 
 COMMENT ON ROLE svc_identidad IS
     'Rol técnico declarativo para operaciones del módulo de identidad.';
